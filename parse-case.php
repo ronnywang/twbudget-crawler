@@ -103,7 +103,7 @@ class Parser
             $fp = fopen($csv_file, 'r');
             $column_type = 0;
             while ($columns = fgetcsv($fp)) {
-                if (implode(',', array_slice($columns, 0, 4)) == '款,項,目,節') {
+                if (strpos(implode(',', array_slice($columns, 0, 4)), '款,項,目,節') !== FALSE) {
                     if (implode(',', array_slice($columns, 4, 3)) == '科目編號,科目名稱,本年度預算數') {
                         $column_type = 1;
                         break;
