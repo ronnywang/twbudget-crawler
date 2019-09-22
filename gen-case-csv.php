@@ -105,7 +105,21 @@ while ($rows = fgetcsv($fp)) {
 fclose($fp);
  */
 
-$fp = gzopen('預算案-歲出機關別預算表.csv.gz', 'r');
+$cat_map = array();
+$cat_id_map = array();
+
+foreach (array('預算案', '法定預算') as $type) {
+    error_log($type);
+
+$ref_list = new StdClass;
+$ref = array();
+$cat = null;
+$code = null;
+$amount = null;
+$topname = null;
+$depname = null;
+$depcat = null;
+$fp = gzopen("{$type}-歲出機關別預算表.csv.gz", 'r');
 $columns = fgetcsv($fp);
 while ($rows = fgetcsv($fp)) {
     $values = array_combine($columns, $rows);
@@ -115,18 +129,17 @@ fclose($fp);
 
 $year_fps = array();
 $columns = explode(',', 'year,code,amount,name,topname,depname,depcat,cat,ref,note');
-$cat_map = array();
-$cat_id_map = array();
 $cat_map['邊政支出'] = 90;
 $cat_map['政權行使支出'] = 91;
 
+error_log($type . ' ' . count((array)$ref_list));
 foreach ($ref_list as $ref => $record) {
     if (!array_key_exists('nochild', $record)) {
         continue;
     }
     list($year, $ref) = explode(':', $ref);
     if (!array_key_Exists($year, $year_fps)) {
-        $year_fps[$year] = fopen(__DIR__ . "/預算案/tw{$year}ap.csv", 'w');
+        $year_fps[$year] = fopen(__DIR__ . "/{$type}/tw{$year}ap.csv", 'w');
         fputcsv($year_fps[$year], $columns);
     }
     $record['ref'] = $ref;
@@ -148,3 +161,4 @@ foreach ($ref_list as $ref => $record) {
 }
 
 array_map('fclose', $year_fps);
+}
