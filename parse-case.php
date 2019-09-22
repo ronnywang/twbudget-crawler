@@ -240,12 +240,12 @@ class Parser
             $type_records = $this->fetchDetail($top_type, $year, $url);
             foreach ($type_records as $type => $column_records) {
                 list($columns, $records) = $column_records;
-                if (!array_key_exists($type, $fps)) {
-                    $fps[$type] = gzopen("{$top_type}-{$type}.csv.gz", 'w');
-                    fputcsv($fps[$type], array_merge(array('年'), $columns));
+                if (!array_key_exists($top_type . ' ' . $type, $fps)) {
+                    $fps[$top_type . ' ' . $type] = gzopen("{$top_type}-{$type}.csv.gz", 'w');
+                    fputcsv($fps[$top_type . ' ' . $type], array_merge(array('年'), $columns));
                 }
                 foreach ($records as $record) {
-                    fputcsv($fps[$type], array_merge(array($year), $record));
+                    fputcsv($fps[$top_type . ' ' . $type], array_merge(array($year), $record));
                 }
             }
             array_map('fflush', $fps);
