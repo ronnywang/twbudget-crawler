@@ -115,6 +115,10 @@ fclose($fp);
 $year_fps = array();
 $columns = explode(',', 'year,code,amount,name,topname,depname,depcat,cat,ref');
 $cat_map = array();
+$cat_id_map = array();
+$cat_map['邊政支出'] = 90;
+$cat_map['政權行使支出'] = 91;
+
 foreach ($ref_list as $ref => $record) {
     if (!array_key_exists('nochild', $record)) {
         continue;
@@ -131,6 +135,11 @@ foreach ($ref_list as $ref => $record) {
     $cat_id = substr($record['code'], 0, 2);
     if (!array_key_exists($record['cat'], $cat_map)) {
         $cat_map[$record['cat']] = $cat_id;
+        if (array_key_exists($cat_id, $cat_id_map) and $record['cat'] != '') {
+            var_dump($record);
+            throw new Exception("{$cat_id} 已經是 {$cat_id_map[$cat_id]}，無法加入 {$record['cat']}");
+        }
+        $cat_id_map[$cat_id] = $record['cat'];
     } elseif ($cat_map[$record['cat']] != $cat_id) {
         $record['code'] = $cat_map[$record['cat']] . substr($record['code'], 2);
     }
