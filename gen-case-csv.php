@@ -1,7 +1,7 @@
 <?php
 
 
-$ref_list = array();
+$ref_list = new StdClass;
 $ref = array();
 $cat = null;
 $code = null;
@@ -50,8 +50,8 @@ $handle_rows = function($values, $type) use (&$ref_list, &$ref, &$cat, &$topname
 
         $year = $values['年'] + 1911;
         $ref_id = $year . ':' . implode('.', $ref);
-        if (!array_key_exists($ref_id, $ref_list)) {
-            $ref_list[$ref_id] = array(
+        if (!property_exists($ref_list, $ref_id)) {
+            $ref_list->{$ref_id} = array(
                 'year' => $year,
                 'topname' => $topname,
                 'depcat' => $depcat,
@@ -62,11 +62,11 @@ $handle_rows = function($values, $type) use (&$ref_list, &$ref, &$cat, &$topname
                 'nochild' => true,
             );
         } else {
-            if (is_null($ref_list[$ref_id]['cat'])) {
-                $ref_list[$ref_id]['cat'] = $cat;
+            if (is_null($ref_list->{$ref_id}['cat'])) {
+                $ref_list->{$ref_id}['cat'] = $cat;
             }
-            if (is_null($ref_list[$ref_id]['topname'])) {
-                $ref_list[$ref_id]['topname'] = $topname;
+            if (is_null($ref_list->{$ref_id}['topname'])) {
+                $ref_list->{$ref_id}['topname'] = $topname;
             }
         }
         return;
@@ -78,14 +78,14 @@ $handle_rows = function($values, $type) use (&$ref_list, &$ref, &$cat, &$topname
         $name = $values['科目名稱'];
         $year = $values['年'] + 1911;
         $ref_id = $year . ':' . implode('.', $ref);
-        if (!array_key_exists($ref_id, $ref_list)) {
-            $ref_list[$ref_id] = array_merge(
-                $ref_list[$year . ':' . implode('.', array_slice($ref, 0, 3))],
+        if (!property_exists($ref_list, $ref_id)) {
+            $ref_list->{$ref_id} = array_merge(
+                $ref_list->{$year . ':' . implode('.', array_slice($ref, 0, 3))},
                 array('name' => $name)
             );
-            $ref_list[$ref_id]['code'] = $code;
-            $ref_list[$ref_id]['amount'] = floatval($values['本年預算數']) * 1000;
-            unset($ref_list[$year . ':' . implode('.', array_slice($ref, 0, 3))]['nochild']);
+            $ref_list->{$ref_id}['code'] = $code;
+            $ref_list->{$ref_id}['amount'] = floatval($values['本年預算數']) * 1000;
+            unset($ref_list->{$year . ':' . implode('.', array_slice($ref, 0, 3))}['nochild']);
         } 
         return;
     }
