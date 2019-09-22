@@ -59,6 +59,7 @@ $handle_rows = function($values, $type) use (&$ref_list, &$ref, &$cat, &$topname
                 'cat' => $cat,
                 'amount' => floatval($values['本年預算數']) * 1000,
                 'code' => $code,
+                'note' => $values['說明'],
                 'nochild' => true,
             );
         } else {
@@ -113,7 +114,7 @@ while ($rows = fgetcsv($fp)) {
 fclose($fp);
 
 $year_fps = array();
-$columns = explode(',', 'year,code,amount,name,topname,depname,depcat,cat,ref');
+$columns = explode(',', 'year,code,amount,name,topname,depname,depcat,cat,ref,note');
 $cat_map = array();
 $cat_id_map = array();
 $cat_map['邊政支出'] = 90;
