@@ -114,6 +114,7 @@ fclose($fp);
 
 $year_fps = array();
 $columns = explode(',', 'year,code,amount,name,topname,depname,depcat,cat,ref');
+$cat_map = array();
 foreach ($ref_list as $ref => $record) {
     if (!array_key_exists('nochild', $record)) {
         continue;
@@ -127,16 +128,11 @@ foreach ($ref_list as $ref => $record) {
     if (!array_key_Exists('name', $record)) {
         $record['name'] = '無細項';
     }
-    if ($year == 2018) {
-        if (strpos($record['code'], '4117') === 0) {
-            $record['code'] = '40' . substr($record['code'], 2);
-        } else if (strpos($record['code'], '4011') === 0) {
-            $record['code'] = '39' . substr($record['code'], 2);
-        } else if (strpos($record['code'], '3908') === 0) {
-            $record['code'] = '38' . substr($record['code'], 2);
-        } else if (strpos($record['code'], '4339') === 0) {
-            $record['code'] = '42' . substr($record['code'], 2);
-        }
+    $cat_id = substr($record['code'], 0, 2);
+    if (!array_key_exists($record['cat'], $cat_map)) {
+        $cat_map[$record['cat']] = $cat_id;
+    } elseif ($cat_map[$record['cat']] != $cat_id) {
+        $record['code'] = $cat_map[$record['cat']] . substr($record['code'], 2);
     }
     fputcsv($year_fps[$year], array_map(function($k) use ($record) { return $record[$k]; }, $columns));
 }
