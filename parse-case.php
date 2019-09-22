@@ -2,7 +2,7 @@
 
 class Parser
 {
-    public function fetch($url)
+    public function fetch($url, $cache_name = null)
     {
         if (strpos($url, 'http') !== 0) {
             $url = "https://www.dgbas.gov.tw/" . $url;
@@ -10,7 +10,11 @@ class Parser
         if (strpos($url, 'http://') === 0) {
             $url = str_replace('http://', 'https://', $url);
         }
-        $cache_file = __DIR__ . "/cache-case/" . crc32($url);
+        if (is_null($cache_name)) {
+            $cache_file = __DIR__ . "/cache-case/" . crc32($url);
+        } else {
+            $cache_file = __DIR__ . "/cache-case/{$cache_name}";
+        }
         if (!file_exists($cache_file) or !filesize($cache_file)) {
             file_put_contents($cache_file, file_get_contents($url));
         }
@@ -20,7 +24,7 @@ class Parser
     public function getYearList()
     {
         $url = 'https://www.dgbas.gov.tw/ct.asp?xItem=26269&CtNode=5389&mp=1';
-        $year_list_file = $this->fetch($url);
+        $year_list_file = $this->fetch($url, 'year-list.html');
 
         $doc = new DOMDocument;
         @$doc->loadHTML(file_get_contents($year_list_file));
@@ -35,15 +39,19 @@ class Parser
             $year = $td_doms->item(0)->nodeValue;
             $url = $td_doms->item(1)->getElementsByTagName('a')->item(0)->getAttribute('href');
 
-            $result[] = array(intval($year), $url);
+            $result[] = array('預算案', intval($year), $url);
+            if ($td_doms->item(2)->getElementsByTagName('a')->item(0)) {
+                $url2 = $td_doms->item(2)->getElementsByTagName('a')->item(0)->getAttribute('href');
+                $result[] = array('法定預算', intval($year), $url2);
+            }
         }
         return $result;
     }
 
-    public function fetchDetail($year, $url) 
+    public function fetchDetail($top_type, $year, $url) 
     {
         error_log("抓取 {$year} 年三張表 {$url}");
-        $year_file = $this->fetch($url);
+        $year_file = $this->fetch($url, "{$top_type}-year-detail-{$year}.html");
         $doc = new DOMDocument;
         @$doc->loadHTML(file_get_contents($year_file));
 
@@ -75,6 +83,50 @@ class Parser
         }
 
         if ($targets) {
+            foreach ($table_p_dom->getElementsByTagName('a') as $a_dom) {
+                if ($a_dom->nodeValue !== 'Excel') {
+                    continue;
+                }
+                $text_dom = $a_dom;
+                while ($text_dom = $text_dom->previousSibling) {
+                    if ($text_dom->nodeName == '#text') {
+                        break;
+                    }
+                }
+                if ($text_dom->nodeValue != ' | ') {
+                    continue;
+                }
+                while ($text_dom = $text_dom->previousSibling) {
+                    if ($text_dom->nodeName == '#text') {
+                        break;
+                    }
+                }
+                if ($text_dom->nodeValue != ') \ 預算表(') {
+                    continue;
+                }
+                while ($text_dom = $text_dom->previousSibling) {
+                    if ($text_dom->nodeName == '#text') {
+                        break;
+                    }
+                }
+                if ($text_dom->nodeValue != ' | ') {
+                    continue;
+                }
+                while ($text_dom = $text_dom->previousSibling) {
+                    if ($text_dom->nodeName == '#text') {
+                        break;
+                    }
+                }
+                foreach ($targets as $t => $nonce) {
+                    if (strpos($text_dom->nodeValue, mb_substr($t, 0, -1, 'UTF-8')) === 0) {
+                        $founds[] = array($t, $a_dom->getAttribute('href'));
+                        unset($targets[$t]);
+                    }
+                }
+            }
+        }
+
+        if ($targets) {
             throw new Exception("仍有以下幾項找不到: " . implode(',', array_keys($targets)));
         }
 
@@ -87,9 +139,9 @@ class Parser
             // excel url 特別處理不要包含中文
             $excel_url = str_replace('http://www.dgbas.gov.tw', 'https://www.dgbas.gov.tw', $excel_url);
             $excel_url = iconv('utf-8', 'big5', $excel_url);
-            $excel_file = $this->fetch($excel_url);
+            $excel_file = $this->fetch($excel_url, "{$top_type}-{$year}-{$type}.xls");
             error_log("parsing {$excel_file} {$excel_url}");
-            $csv_file = __DIR__ . "/cache-case/csv-" . crc32($excel_file);
+            $csv_file = __DIR__ . "/cache-case/{$top_type}-{$year}-{$type}.csv";
             if (!file_exists($csv_file) or !filesize($csv_file)) {
                 $cmd = sprintf("./node_modules/.bin/xlsx --list-sheets %s", escapeshellarg($excel_file));
                 $sheets = explode("\n", trim(`$cmd`));
@@ -125,7 +177,7 @@ class Parser
             }
 
             $records = array();
-            $columns = explode(',', '款,項,目,節,科目編號,科目名稱,本年預算數,上年預算數,前年預算數');
+            $columns = explode(',', '款,項,目,節,科目編號,科目名稱,本年預算數,上年預算數,前年預算數,說明');
             while ($rows = fgetcsv($fp)) {
                 $rows = array_map('trim', $rows);
                 if (implode('', $rows) == '') {
@@ -163,6 +215,7 @@ class Parser
                     }
                     $values[$f] = $amount;
                 }
+                $values['說明'] = trim(array_shift($rows));
                 $records[] = array_values($values);
             }
 
@@ -177,15 +230,18 @@ class Parser
         $year_urls = $this->getYearList();
         $fps = array();
         foreach ($year_urls as $year_url) {
-            list($year, $url) = $year_url;
+            list($top_type, $year, $url) = $year_url;
+            if ($year == 95 and $top_type == '法定預算') {
+                continue;
+            }
             if ($year == 94) {
                 break;
             }
-            $type_records = $this->fetchDetail($year, $url);
+            $type_records = $this->fetchDetail($top_type, $year, $url);
             foreach ($type_records as $type => $column_records) {
                 list($columns, $records) = $column_records;
                 if (!array_key_exists($type, $fps)) {
-                    $fps[$type] = gzopen("預算案-{$type}.csv.gz", 'w');
+                    $fps[$type] = gzopen("{$top_type}-{$type}.csv.gz", 'w');
                     fputcsv($fps[$type], array_merge(array('年'), $columns));
                 }
                 foreach ($records as $record) {
